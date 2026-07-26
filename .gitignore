@@ -21,6 +21,9 @@ models/siglip2/
 *.db
 *.db-journal
 
+# Assets (dev resources, not code)
+assets/
+
 # Environment
 .env
 .env.local
