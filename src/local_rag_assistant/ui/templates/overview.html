@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Overview | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Current index</p>
+      <h2>{{ stats.collection_name }}</h2>
+      <p class="muted">A minimal server-rendered entry point for local ingestion and document operations.</p>
+    </div>
+    <div class="actions">
+      <a class="button" href="/ingest">Review ingest flow</a>
+      <a class="button button-secondary" href="/documents">Browse documents</a>
+    </div>
+  </section>
+
+  <section class="stats-grid" aria-label="Overview metrics">
+    <article class="card stat-card">
+      <p class="label">Indexed chunks</p>
+      <strong>{{ stats.chunks }}</strong>
+    </article>
+    <article class="card stat-card">
+      <p class="label">Searchable documents</p>
+      <strong>{{ stats.documents }}</strong>
+    </article>
+    <article class="card stat-card">
+      <p class="label">Tracked sources</p>
+      <strong>{{ document_count }}</strong>
+    </article>
+  </section>
+
+  <section class="two-column">
+    <article class="card">
+      <h3>Registry status</h3>
+      <dl class="status-list">
+        <div><dt>Indexed</dt><dd>{{ status_counts.indexed }}</dd></div>
+        <div><dt>Pending</dt><dd>{{ status_counts.pending }}</dd></div>
+        <div><dt>Failed</dt><dd>{{ status_counts.failed }}</dd></div>
+      </dl>
+    </article>
+
+    <article class="card">
+      <div class="section-heading">
+        <h3>Recent documents</h3>
+        <p class="muted compact">Latest registry updates at a glance.</p>
+      </div>
+      {% if recent_documents %}
+        <ul class="document-list">
+          {% for document in recent_documents %}
+            <li>
+              <div>
+                <strong>{{ document.title or document.source_path }}</strong>
+                <p class="muted compact">{{ document.source_path }}</p>
+              </div>
+              <span class="status status-{{ document.status }}">{{ document.status }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">
+          <p class="eyebrow">Nothing yet</p>
+          <p class="muted">No documents have been tracked yet.</p>
+        </div>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}

@@ -1,0 +1,3 @@
+Retrieval handbook fixture.
+
+This plain text document proves the ingestion flow can load fixture files and expose them through the documents experience.

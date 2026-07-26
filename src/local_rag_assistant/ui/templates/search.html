@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Search | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Semantic retrieval</p>
+      <h2>Search indexed content</h2>
+      <p class="muted">Submit a plain query and render the existing search runtime results without introducing client-side state.</p>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="card">
+      <div class="section-heading">
+        <h3>Query</h3>
+        <p class="muted compact">Run retrieval with the existing orchestrator and render results directly on the page.</p>
+      </div>
+      <form method="get" action="{{ request.url_for('search') }}" class="stack-form">
+        <label for="query">Search query</label>
+        <input id="query" name="query" type="text" value="{{ submitted_query }}" placeholder="What changed in the ingestion flow?">
+        <button class="button" type="submit">Run search</button>
+      </form>
+    </article>
+
+    <article class="card">
+      <div class="section-heading">
+        <h3>Current wiring</h3>
+        <p class="muted compact">No client state, no additional view layer.</p>
+      </div>
+      <dl class="meta-list">
+        <div><dt>Route</dt><dd><code>/search</code></dd></div>
+        <div><dt>Mode</dt><dd>Server-rendered</dd></div>
+        <div><dt>Runtime</dt><dd>Existing orchestrator search</dd></div>
+      </dl>
+      <p class="muted">The page stays empty until a query is submitted, then renders the ranked results returned by the current runtime.</p>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="section-heading">
+      <h3>Results</h3>
+      {% if has_result and search_result %}
+        <p class="muted compact">Ranked chunks from the current index.</p>
+      {% endif %}
+    </div>
+    {% if has_result and search_result %}
+      {% if search_result.results %}
+        <p class="muted">{{ search_result.total_results }} result(s) for <code>{{ search_result.query }}</code>.</p>
+        <ul class="result-list">
+          {% for result in search_result.results %}
+            <li>
+              <div class="result-header">
+                <strong>{{ result.metadata.get('title') or result.document_id }}</strong>
+                <span class="status status-neutral">Score {{ '%.2f'|format(result.score) }}</span>
+              </div>
+              <p><code>{{ result.metadata.get('source') or 'unknown' }}</code></p>
+              <p class="muted">Chunk {{ result.chunk_index }}</p>
+              <p>{{ result.text }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state empty-state-left">
+          <p class="eyebrow">No matches</p>
+          <p class="muted">No indexed chunks matched this query.</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state empty-state-left">
+        <p class="eyebrow">Ready</p>
+        <p class="muted">Run a query to inspect retrieval results.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

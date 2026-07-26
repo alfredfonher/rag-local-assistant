@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.title or document.document_id }} | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Document detail</p>
+      <h2>{{ document.title or document.document_id }}</h2>
+      <p class="muted">Inspect one tracked record and run simple document actions against the existing ingestion flow.</p>
+    </div>
+    <div class="actions">
+      <form method="post" action="{{ request.url_for('ui-document-reindex', document_id=document.document_id) }}">
+        <button class="button" type="submit">Reindex</button>
+      </form>
+      <form method="post" action="{{ request.url_for('ui-document-delete', document_id=document.document_id) }}">
+        <button class="button button-danger" type="submit">Delete</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="card">
+      <div class="section-heading">
+        <h3>Record</h3>
+        <p class="muted compact">Core registry data for this tracked item.</p>
+      </div>
+      <dl class="meta-list">
+        <div><dt>Document ID</dt><dd><code>{{ document.document_id }}</code></dd></div>
+        <div><dt>Status</dt><dd><span class="status status-{{ document.status }}">{{ document.status }}</span></dd></div>
+        <div><dt>File type</dt><dd>{{ document.file_type }}</dd></div>
+        <div><dt>Updated</dt><dd>{{ document.updated_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd></div>
+        <div><dt>Created</dt><dd>{{ document.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd></div>
+      </dl>
+    </article>
+
+    <article class="card">
+      <div class="section-heading">
+        <h3>Source</h3>
+        <p class="muted compact">File origin and checksum details.</p>
+      </div>
+      <dl class="meta-list">
+        <div><dt>Path</dt><dd><code>{{ document.source_path }}</code></dd></div>
+        <div><dt>Checksum</dt><dd><code>{{ document.content_sha256 }}</code></dd></div>
+        {% if document.error_message %}
+          <div><dt>Last error</dt><dd class="status-text-failed">{{ document.error_message }}</dd></div>
+        {% endif %}
+      </dl>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="section-heading">
+      <h3>Metadata</h3>
+      <p class="muted compact">Additional extracted fields stored alongside the record.</p>
+    </div>
+    {% if document.metadata %}
+      <dl class="meta-list">
+        {% for key, value in document.metadata|dictsort %}
+          <div><dt>{{ key }}</dt><dd><code>{{ value }}</code></dd></div>
+        {% endfor %}
+      </dl>
+    {% else %}
+      <div class="empty-state empty-state-left">
+        <p class="muted">No metadata was recorded for this document.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

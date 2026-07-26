@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Documents | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Document registry</p>
+      <h2>Tracked sources</h2>
+      <p class="muted">A simple server-rendered view of the existing ingestion registry.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    {% if documents %}
+      <div class="section-heading section-heading-spaced">
+        <div>
+          <h3>Registry entries</h3>
+          <p class="muted compact">Browse tracked sources, inspect failures, and rerun existing actions.</p>
+        </div>
+        <span class="status status-neutral">{{ documents|length }} total</span>
+      </div>
+      <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Source</th>
+            <th scope="col">Status</th>
+            <th scope="col">Updated</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for document in documents %}
+            <tr>
+              <td data-label="Title"><a href="{{ request.url_for('document-detail', document_id=document.document_id) }}">{{ document.title or document.document_id }}</a></td>
+              <td data-label="Source"><code>{{ document.source_path }}</code></td>
+              <td data-label="Status"><span class="status status-{{ document.status }}">{{ document.status }}</span></td>
+              <td data-label="Updated">{{ document.updated_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+              <td data-label="Actions">
+                <div class="row-actions">
+                  <form method="post" action="{{ request.url_for('ui-document-reindex', document_id=document.document_id) }}">
+                    <button class="button button-small" type="submit">Reindex</button>
+                  </form>
+                  <form method="post" action="{{ request.url_for('ui-document-delete', document_id=document.document_id) }}">
+                    <button class="button button-secondary button-small" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p class="eyebrow">Empty registry</p>
+        <h3>No documents have been ingested yet.</h3>
+        <p class="muted">Start from the ingest page to add files or directories to the local index.</p>
+        <a class="button button-secondary" href="/ingest">Open ingest</a>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

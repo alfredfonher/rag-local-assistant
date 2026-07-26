@@ -1,0 +1,10 @@
+.atl/
+.git/
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]
+data/
+models/
+openspec/
+tests/

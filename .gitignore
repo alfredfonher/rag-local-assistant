@@ -1,0 +1,32 @@
+# Python
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime
+data/
+runtime-data/
+
+# Model weights
+models/*.gguf
+models/siglip2/
+
+# Dev tooling
+.codegraph/
+.atl/
+.engram/
+.opencode/
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/

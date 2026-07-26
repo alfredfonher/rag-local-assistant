@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Chat | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Grounded answers</p>
+      <h2>Ask against the local index</h2>
+      <p class="muted">Submit a prompt and render the existing chat runtime answer plus sources on the server.</p>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="card">
+      <div class="section-heading">
+        <h3>Prompt</h3>
+        <p class="muted compact">Ask a question and render the grounded answer on the server.</p>
+      </div>
+      <form method="get" action="{{ request.url_for('ui-chat-page') }}" class="stack-form">
+        <label for="query">Chat prompt</label>
+        <textarea id="query" name="query" rows="6" placeholder="Summarize the latest ingestion behavior.">{{ submitted_query }}</textarea>
+        <button class="button" type="submit">Run chat</button>
+      </form>
+    </article>
+
+    <article class="card">
+      <div class="section-heading">
+        <h3>Current wiring</h3>
+        <p class="muted compact">Same route architecture, just cleaner output presentation.</p>
+      </div>
+      <dl class="meta-list">
+        <div><dt>Route</dt><dd><code>/chat</code></dd></div>
+        <div><dt>Mode</dt><dd>Server-rendered</dd></div>
+        <div><dt>Runtime</dt><dd>Existing orchestrator chat</dd></div>
+      </dl>
+      <p class="muted">The page stays empty until a prompt is submitted, then renders the grounded answer and any returned sources.</p>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="section-heading">
+      <h3>Answer</h3>
+      {% if has_result and chat_response %}
+        <p class="muted compact">Grounded response plus any returned sources.</p>
+      {% endif %}
+    </div>
+    {% if has_result and chat_response %}
+      <div class="answer-block">
+        <p>{{ chat_response.answer }}</p>
+      </div>
+      <h3 class="subsection-title">Sources</h3>
+      {% if chat_response.sources %}
+        <ul class="result-list">
+          {% for source in chat_response.sources %}
+            <li>
+              <div class="result-header">
+                <strong>{{ source.title or source.source }}</strong>
+                {% if source.score is not none %}
+                  <span class="status status-neutral">Score {{ '%.2f'|format(source.score) }}</span>
+                {% endif %}
+              </div>
+              <p><code>{{ source.source }}</code></p>
+              <p class="muted">Chunk {{ source.chunk_index }}</p>
+              <p>{{ source.excerpt }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state empty-state-left">
+          <p class="muted">No supporting sources were returned for this answer.</p>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state empty-state-left">
+        <p class="eyebrow">Ready</p>
+        <p class="muted">Run a prompt to inspect a grounded answer.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Ingest | local-rag-assistant{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Ingestion surface</p>
+      <h2>Prepare document imports</h2>
+      <p class="muted">Submit files or directories through the existing ingestion service. Directories are scanned recursively for .md, .txt, and .pdf files.</p>
+    </div>
+  </section>
+
+  <section class="two-column">
+    <article class="card">
+      <div class="section-heading">
+        <h3>Submit paths</h3>
+        <p class="muted compact">Paste one absolute file or directory path per line.</p>
+      </div>
+      <form
+        method="post"
+        action="{{ ingest_submit_endpoint }}"
+        class="stack-form"
+        data-ingest-form
+        data-job-endpoint="{{ ingestion_job_endpoint }}"
+        data-jobs-base-url="{{ ingestion_jobs_base_url }}"
+      >
+        <label for="paths">One file or directory path per line</label>
+        <textarea id="paths" name="paths" rows="8" placeholder="/home/aprog/Documents/notes.md&#10;/home/aprog/Documents/projects&#10;/home/aprog/Documents/report.pdf">{{ submitted_paths or '' }}</textarea>
+        <button class="button" type="submit" data-ingest-submit>Ingest paths</button>
+      </form>
+
+      <div class="job-status" data-ingest-status hidden>
+        <p class="label" data-job-phase>Waiting for a job</p>
+        <div class="progress" aria-hidden="true">
+          <div class="progress-bar" data-job-progress-bar></div>
+        </div>
+        <p class="job-percent" data-job-percent>0%</p>
+        <p class="muted" data-job-summary>Live progress appears here after a job starts.</p>
+        <p class="muted" data-job-current-path></p>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="section-heading">
+        <h3>Current wiring</h3>
+        <p class="muted compact">Operational details for this running process.</p>
+      </div>
+      <dl class="meta-list">
+        <div><dt>API endpoint</dt><dd><code>{{ ingest_endpoint }}</code></dd></div>
+        <div><dt>Job endpoint</dt><dd><code>{{ ingestion_job_endpoint }}</code></dd></div>
+        <div><dt>Registry path</dt><dd><code>{{ registry_path }}</code></dd></div>
+        <div><dt>Storage path</dt><dd><code>{{ storage_path }}</code></dd></div>
+        <div><dt>Tracked documents</dt><dd>{{ document_count }}</dd></div>
+      </dl>
+      <div class="callout">
+        <p class="muted">The UI stays honest: newline-separated paths in, registry-backed file results out.</p>
+        <p class="muted">Live progress is streamed from the in-memory ingestion job store for this running app process only.</p>
+      </div>
+    </article>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (() => {
+      const form = document.querySelector("[data-ingest-form]");
+      if (!form || !window.fetch || !window.EventSource) {
+        return;
+      }
+
+      const textarea = form.querySelector("#paths");
+      const submitButton = form.querySelector("[data-ingest-submit]");
+      const status = document.querySelector("[data-ingest-status]");
+      const phase = document.querySelector("[data-job-phase]");
+      const progressBar = document.querySelector("[data-job-progress-bar]");
+      const percent = document.querySelector("[data-job-percent]");
+      const summary = document.querySelector("[data-job-summary]");
+      const currentPath = document.querySelector("[data-job-current-path]");
+      const jobEndpoint = form.dataset.jobEndpoint;
+      const jobsBaseUrl = form.dataset.jobsBaseUrl;
+      let eventSource = null;
+      let lastSequence = 0;
+
+      const closeStream = () => {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+      };
+
+      const setRunning = (running) => {
+        submitButton.disabled = running;
+        submitButton.textContent = running ? "Starting job..." : "Ingest paths";
+      };
+
+      const showStatus = () => {
+        status.hidden = false;
+      };
+
+      const setProgress = (value) => {
+        const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
+        progressBar.style.width = `${safeValue}%`;
+        percent.textContent = `${Math.round(safeValue)}%`;
+      };
+
+      const renderSnapshot = (snapshot, fallbackState) => {
+        const state = fallbackState || "running";
+        const eventName = snapshot && snapshot.event ? snapshot.event : state;
+        phase.textContent = `Job ${state}`;
+        setProgress(snapshot ? snapshot.percent : 0);
+
+        const discovered = snapshot ? snapshot.discovered_files : 0;
+        const processed = snapshot ? snapshot.processed_files : 0;
+        const indexed = snapshot ? snapshot.indexed_files : 0;
+        const failed = snapshot ? snapshot.failed_files : 0;
+        summary.textContent = `${processed}/${discovered} processed, ${indexed} indexed, ${failed} failed.`;
+
+        if (snapshot && snapshot.current_path) {
+          const prefix = eventName === "failed" ? "Last path:" : "Current path:";
+          currentPath.textContent = `${prefix} ${snapshot.current_path}`;
+        } else {
+          currentPath.textContent = "";
+        }
+
+        if (eventName === "completed") {
+          phase.textContent = "Job completed";
+          summary.textContent = `Completed ${processed} of ${discovered} discovered file(s): ${indexed} indexed, ${failed} failed.`;
+        }
+
+        if (eventName === "failed" && snapshot && snapshot.error_message) {
+          phase.textContent = "Job failed";
+          summary.textContent = `Job failed: ${snapshot.error_message}`;
+        }
+      };
+
+      const fetchState = async (jobId) => {
+        const response = await fetch(`${jobsBaseUrl}${jobId}`, {
+          headers: {"Accept": "application/json"},
+        });
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          payload = null;
+        }
+        if (!response.ok) {
+          throw new Error(payload && payload.detail ? payload.detail : "Unable to load ingestion job state.");
+        }
+        return payload;
+      };
+
+      const handleTerminalState = (payload) => {
+        renderSnapshot(payload.snapshot, payload.status);
+        setRunning(false);
+        closeStream();
+      };
+
+      const openStream = (jobId) => {
+        closeStream();
+        const separator = lastSequence > 0 ? `?last_event_id=${lastSequence}` : "";
+        eventSource = new EventSource(`${jobsBaseUrl}${jobId}/events${separator}`);
+
+        eventSource.onmessage = (message) => {
+          const payload = JSON.parse(message.data);
+          lastSequence = payload.sequence;
+          renderSnapshot(payload, "running");
+          submitButton.textContent = "Ingesting...";
+          if (payload.event === "completed" || payload.event === "failed") {
+            handleTerminalState({status: payload.event === "completed" ? "completed" : "failed", snapshot: payload});
+          }
+        };
+
+        eventSource.onerror = async () => {
+          closeStream();
+          try {
+            const state = await fetchState(jobId);
+            if (state.status === "completed" || state.status === "failed") {
+              handleTerminalState(state);
+              return;
+            }
+            renderSnapshot(state.snapshot, state.status);
+            summary.textContent = "Live connection dropped. Trying again...";
+            setTimeout(() => openStream(jobId), 1000);
+          } catch (error) {
+            phase.textContent = "Job status unavailable";
+            summary.textContent = error instanceof Error ? error.message : "Unable to reconnect to the ingestion stream.";
+            setRunning(false);
+          }
+        };
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const paths = textarea.value
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        showStatus();
+        currentPath.textContent = "";
+        lastSequence = 0;
+
+        if (paths.length === 0) {
+          phase.textContent = "Input required";
+          summary.textContent = "Enter at least one absolute or resolvable path.";
+          setProgress(0);
+          return;
+        }
+
+        setRunning(true);
+        phase.textContent = "Creating job";
+        summary.textContent = "Requesting an in-memory ingestion job from the server...";
+        setProgress(0);
+
+        try {
+          const response = await fetch(jobEndpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({paths}),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload && payload.detail ? payload.detail : "Unable to start ingestion job.");
+          }
+
+          renderSnapshot(payload.snapshot, payload.status);
+          submitButton.textContent = "Ingesting...";
+          if (payload.status === "completed" || payload.status === "failed") {
+            handleTerminalState(payload);
+            return;
+          }
+          openStream(payload.job_id);
+        } catch (error) {
+          phase.textContent = "Job creation failed";
+          summary.textContent = error instanceof Error ? error.message : "Unable to start ingestion job.";
+          setRunning(false);
+        }
+      });
+    })();
+  </script>
+{% endblock %}

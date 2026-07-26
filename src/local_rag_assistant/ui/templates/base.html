@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}local-rag-assistant{% endblock %}</title>
+    <link rel="stylesheet" href="{{ request.url_for('ui-static', path='styles.css') }}">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <p class="eyebrow">local-rag-assistant</p>
+          <h1>Document Operations</h1>
+          <p class="topbar-copy">Server-rendered local workflows for ingestion, retrieval, and document maintenance.</p>
+        </div>
+        <nav class="nav" aria-label="Primary">
+          <a href="/overview" {% if page == "overview" %}aria-current="page"{% endif %}>Overview</a>
+          <a href="/ingest" {% if page == "ingest" %}aria-current="page"{% endif %}>Ingest</a>
+          <a href="/documents" {% if page == "documents" %}aria-current="page"{% endif %}>Documents</a>
+          <a href="/search" {% if page == "search" %}aria-current="page"{% endif %}>Search</a>
+          <a href="/chat" {% if page == "chat" %}aria-current="page"{% endif %}>Chat</a>
+        </nav>
+      </header>
+      <main class="page-content">
+        {% if message %}
+          <div class="flash flash-success" role="status">{{ message }}</div>
+        {% endif %}
+        {% if error %}
+          <div class="flash flash-error" role="alert">{{ error }}</div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
